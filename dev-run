@@ -1,0 +1,78 @@
+#!/bin/bash
+
+echo ""
+echo ">>> Working Directory:"
+echo $PWD
+
+MAIN_FILE=main.go
+APP_NAME=main
+
+if [ $1 != "" ]
+then
+  MAIN_FILE=$1
+fi
+
+APP_NAME=$2
+
+if [[ $APP_NAME == "" ]]
+then
+  APP_NAME=${MAIN_FILE##*/}
+  APP_NAME=${APP_NAME%.*}
+fi
+
+echo ""
+echo ">>> Main-File: $MAIN_FILE"
+echo ">>> App-Name $APP_NAME"
+
+sigint_handler(){
+	pkill -9 -f 'go run'
+
+	if [[ $APP_NAME != "" ]]
+  then
+    pkill -9  -f "$APP_NAME"
+  fi
+
+	echo ""
+	echo $(date) ": Exit Application"
+	echo ""
+}
+
+mrun() {
+  echo "Terminating App: $APP_NAME"
+	if [[ $APP_NAME != "" ]]
+  then
+    pkill -9 "$APP_NAME"
+  fi
+
+  echo "Terminating Dev-Task"
+	pkill -9 -f 'go run'
+
+	echo $(date) ": Restarting Application"
+	echo "====================================================="
+	echo ""
+
+	go run $MAIN_FILE
+
+	echo ""
+	echo "====================================================="
+	echo "Application-PID:" $!
+	echo ""
+}
+
+mrun
+
+trap sigint_handler INT
+
+while FILENAME=$(inotifywait -r -e modify "./" --format "%f"  --exclude "^((.+)\.(o|kate-swp))|^((.*)$MAIN_FILE)$" )
+do
+	if [[ $FILENAME == *.go* ]]
+	then
+		echo ""
+		echo ">>> FILE Changed:"
+		echo $FILENAME
+		echo ""
+		mrun
+	fi
+	sleep 1s
+
+done
